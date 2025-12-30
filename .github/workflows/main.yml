@@ -10,10 +10,9 @@ jobs:
   run-script:
     runs-on: ubuntu-latest
     env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI__API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ARIZE_SPACE_ID: ${{ secrets.ARIZE_SPACE_ID }}
       ARIZE_API_KEY: ${{ secrets.ARIZE_API_KEY }}
-      ARIZE_PROJECT_NAME: ${{ secrets.ARIZE_PROJECT_NAME }}
       ARIZE_DATASET_ID: ${{ secrets.ARIZE_DATASET_ID }}
 
     steps:
