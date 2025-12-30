@@ -3,7 +3,7 @@ name: Hallucination Check
 on:
   push:
     paths:
-      - prompts/rag_prompt.py
+      - 'prompts/**'
 
 
 jobs:
@@ -18,15 +18,15 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
-        pip install -q arize==7.36.0 arize-phoenix==4.29.0 nest_asyncio packaging openai 'gql[all]' python-dotenv
+        pip install -r requirements.txt
     - name: Run script
       run: python ./benchmark.py

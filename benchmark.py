@@ -98,5 +98,5 @@ experiment = arize_client.run_experiment(
     dataset_id=os.getenv("ARIZE_DATASET_ID"),
     task=run_task,
     evaluators=[hallucination_eval],
-    experiment_name=f"Local RAG Benchmark {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+    experiment_name=f"Github Actions RAG Benchmark {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
 )

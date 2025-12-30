@@ -18,6 +18,7 @@ pydantic-settings==2.10.1
 tenacity==9.1.2
 
 # Instrumentation and monitoring
+arize
 arize-phoenix==11.8.0
 arize-phoenix-otel==0.12.1
 openinference-instrumentation-llama-index==4.3.1
