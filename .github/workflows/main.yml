@@ -9,6 +9,7 @@ on:
 jobs:
   run-script:
     runs-on: ubuntu-latest
+    environment: cicd
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ARIZE_SPACE_ID: ${{ secrets.ARIZE_SPACE_ID }}
@@ -16,6 +17,20 @@ jobs:
       ARIZE_DATASET_ID: ${{ secrets.ARIZE_DATASET_ID }}
 
     steps:
+    - name: Debug - Check secrets are populated
+      run: |
+        echo "Checking if secrets are set (will show *** if set, empty if not):"
+        echo "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}"
+        echo "ARIZE_API_KEY: ${{ secrets.ARIZE_API_KEY }}"
+        echo "ARIZE_SPACE_ID: ${{ secrets.ARIZE_SPACE_ID }}"
+        echo "ARIZE_DATASET_ID: ${{ secrets.ARIZE_DATASET_ID }}"
+        echo ""
+        echo "Checking env vars (length check):"
+        echo "OPENAI_API_KEY length: ${#OPENAI_API_KEY}"
+        echo "ARIZE_API_KEY length: ${#ARIZE_API_KEY}"
+        echo "ARIZE_SPACE_ID length: ${#ARIZE_SPACE_ID}"
+        echo "ARIZE_DATASET_ID length: ${#ARIZE_DATASET_ID}"
+
     - name: Checkout repository
       uses: actions/checkout@v4
 
@@ -27,5 +42,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
+
     - name: Run script
       run: python ./benchmark.py
