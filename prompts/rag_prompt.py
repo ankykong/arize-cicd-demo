@@ -8,4 +8,4 @@ Context 3: {context_3}
 
 Question: {query}
 
-When applicable, cite specific sections from the Arize documentation. Compare data across the two most recent reports when relevant to show trends or changes. Present solutions clearly and accurately."""
+Provide a clear and accurate answer based solely on the information given in the context above. If the context doesn't contain enough information to answer the question, say so."""
