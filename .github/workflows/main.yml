@@ -1,0 +1,32 @@
+name: Hallucination Check
+
+on:
+  push:
+    paths:
+      - prompts/rag_prompt.py
+
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI__API_KEY }}
+      ARIZE_SPACE_ID: ${{ secrets.ARIZE_SPACE_ID }}
+      ARIZE_API_KEY: ${{ secrets.ARIZE_API_KEY }}
+      ARIZE_PROJECT_NAME: ${{ secrets.ARIZE_PROJECT_NAME }}
+      ARIZE_DATASET_ID: ${{ secrets.ARIZE_DATASET_ID }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install -q arize==7.36.0 arize-phoenix==4.29.0 nest_asyncio packaging openai 'gql[all]' python-dotenv
+    - name: Run script
+      run: python ./benchmark.py
