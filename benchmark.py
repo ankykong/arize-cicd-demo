@@ -14,6 +14,11 @@ from datetime import datetime
 import dotenv
 dotenv.load_dotenv()
 
+print(os.getenv("OPENAI_API_KEY"))
+print(os.getenv("ARIZE_SPACE_ID"))
+print(os.getenv("ARIZE_API_KEY"))
+print(os.getenv("ARIZE_DATASET_ID"))
+
 arize_client = ArizeDatasetsClient(api_key=os.getenv("ARIZE_API_KEY"))
 
 # Get the current dataset version
