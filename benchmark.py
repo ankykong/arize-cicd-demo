@@ -10,6 +10,7 @@ from openai.types.chat import ChatCompletionToolParam
 import json
 import os
 from datetime import datetime
+import sys
 
 import dotenv
 dotenv.load_dotenv()
@@ -93,6 +94,101 @@ def hallucination_eval(output, dataset_row, **kwargs) -> EvaluationResult:
     return EvaluationResult(score=score, label=label, explanation=explanation)
 
 
+def fetch_experiment_details(experiment_id: str, threshold: float = 0.8):
+    """
+    Fetch experiment details using the Arize SDK and evaluate success.
+    
+    Args:
+        experiment_id: The unique identifier of the experiment
+        threshold: Minimum acceptable score for evaluators (default: 0.8)
+    
+    Returns:
+        dict with keys:
+            - success: bool indicating if all metrics passed threshold
+            - metrics: dict of metric_name -> mean_score
+            - details: human-readable summary
+    """
+    # Use the Arize SDK to get experiment results as a DataFrame
+    experiment_df = arize_client.get_experiment(
+        space_id=os.getenv("ARIZE_SPACE_ID"),
+        experiment_id=experiment_id
+    )
+    
+    if experiment_df is None or experiment_df.empty:
+        return {
+            "success": False,
+            "metrics": {},
+            "details": "Failed to retrieve experiment results or no results found"
+        }
+    
+    # Find columns that contain evaluation scores (typically named like 'eval.<evaluator_name>.score')
+    score_columns = [col for col in experiment_df.columns if 'score' in col.lower()]
+    
+    if not score_columns:
+        # Fallback: look for columns with 'eval' in the name
+        score_columns = [col for col in experiment_df.columns if 'eval' in col.lower()]
+    
+    metrics = {}
+    all_passed = True
+    details_parts = []
+    
+    for col in score_columns:
+        # Calculate mean score for this metric, ignoring NaN values
+        mean_score = experiment_df[col].dropna().mean()
+        if pd.notna(mean_score):
+            metrics[col] = mean_score
+            passed = mean_score >= threshold
+            status = "PASS" if passed else "FAIL"
+            details_parts.append(f"  {col}: {mean_score:.2%} [{status}]")
+            if not passed:
+                all_passed = False
+    
+    if not metrics:
+        return {
+            "success": False,
+            "metrics": {},
+            "details": "No evaluation metrics found in experiment results"
+        }
+    
+    details = f"Experiment Results (threshold: {threshold:.0%}):\n" + "\n".join(details_parts)
+    
+    return {
+        "success": all_passed,
+        "metrics": metrics,
+        "details": details
+    }
+
+
+def determine_experiment_success(experiment_id: str, threshold: float = 0.8):
+    """
+    Evaluate experiment results and exit with appropriate code for CI/CD.
+    
+    Exit codes:
+        0 - All metrics passed the threshold (success)
+        1 - One or more metrics failed the threshold (failure)
+    
+    Args:
+        experiment_id: The unique identifier of the experiment
+        threshold: Minimum acceptable score for evaluators (default: 0.8)
+    """
+    print(f"\n{'='*60}")
+    print("EVALUATING EXPERIMENT RESULTS FOR CI/CD")
+    print(f"{'='*60}")
+    
+    result = fetch_experiment_details(experiment_id, threshold)
+    
+    print(result["details"])
+    print(f"{'='*60}")
+    
+    if result["success"]:
+        print("STATUS: SUCCESS - All metrics passed threshold")
+        print("CI/CD: Allowing merge/push")
+        sys.exit(0)
+    else:
+        print("STATUS: FAILURE - One or more metrics below threshold")
+        print("CI/CD: Blocking merge/push")
+        sys.exit(1)
+
 experiment = arize_client.run_experiment(
     space_id=os.getenv("ARIZE_SPACE_ID"),
     dataset_id=os.getenv("ARIZE_DATASET_ID"),
@@ -100,3 +196,5 @@ experiment = arize_client.run_experiment(
     evaluators=[hallucination_eval],
     experiment_name=f"Github Actions RAG Benchmark {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
 )
+
+determine_experiment_success(experiment.experiment_id)

@@ -12,6 +12,11 @@ jobs:
   rotate:
     runs-on: ubuntu-latest
     environment: cicd
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ARIZE_SPACE_ID: ${{ secrets.ARIZE_SPACE_ID }}
+      ARIZE_API_KEY: ${{ secrets.ARIZE_API_KEY }}
+      ARIZE_DATASET_ID: ${{ secrets.ARIZE_DATASET_ID }}
     
     steps:
     - name: Checkout repository
@@ -24,10 +29,16 @@ jobs:
       with:
         python-version: '3.11'
 
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
     - name: Rotate prompt
       run: python rotate_prompt.py
 
-    - name: Commit and push changes
+    - name: Run benchmark (blocks push if fails)
+      run: python benchmark.py
+
+    - name: Commit and push changes (only runs if benchmark passed)
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
