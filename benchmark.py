@@ -94,12 +94,12 @@ def hallucination_eval(output, dataset_row, **kwargs) -> EvaluationResult:
     return EvaluationResult(score=score, label=label, explanation=explanation)
 
 
-def fetch_experiment_details(experiment_id: str, threshold: float = 0.8):
+def evaluate_experiment_results(experiment_df: pd.DataFrame, threshold: float = 0.8):
     """
-    Fetch experiment details using the Arize SDK and evaluate success.
+    Evaluate experiment results DataFrame and determine success.
     
     Args:
-        experiment_id: The unique identifier of the experiment
+        experiment_df: DataFrame containing experiment results from run_experiment
         threshold: Minimum acceptable score for evaluators (default: 0.8)
     
     Returns:
@@ -108,12 +108,6 @@ def fetch_experiment_details(experiment_id: str, threshold: float = 0.8):
             - metrics: dict of metric_name -> mean_score
             - details: human-readable summary
     """
-    # Use the Arize SDK to get experiment results as a DataFrame
-    experiment_df = arize_client.get_experiment(
-        space_id=os.getenv("ARIZE_SPACE_ID"),
-        experiment_id=experiment_id
-    )
-    
     if experiment_df is None or experiment_df.empty:
         return {
             "success": False,
@@ -159,7 +153,7 @@ def fetch_experiment_details(experiment_id: str, threshold: float = 0.8):
     }
 
 
-def determine_experiment_success(experiment_id: str, threshold: float = 0.8):
+def determine_experiment_success(experiment_df: pd.DataFrame, experiment_id: str, threshold: float = 0.8):
     """
     Evaluate experiment results and exit with appropriate code for CI/CD.
     
@@ -168,14 +162,16 @@ def determine_experiment_success(experiment_id: str, threshold: float = 0.8):
         1 - One or more metrics failed the threshold (failure)
     
     Args:
-        experiment_id: The unique identifier of the experiment
+        experiment_df: DataFrame containing experiment results
+        experiment_id: The experiment ID (for logging)
         threshold: Minimum acceptable score for evaluators (default: 0.8)
     """
     print(f"\n{'='*60}")
     print("EVALUATING EXPERIMENT RESULTS FOR CI/CD")
+    print(f"Experiment ID: {experiment_id}")
     print(f"{'='*60}")
     
-    result = fetch_experiment_details(experiment_id, threshold)
+    result = evaluate_experiment_results(experiment_df, threshold)
     
     print(result["details"])
     print(f"{'='*60}")
@@ -189,7 +185,9 @@ def determine_experiment_success(experiment_id: str, threshold: float = 0.8):
         print("CI/CD: Blocking merge/push")
         sys.exit(1)
 
-experiment = arize_client.run_experiment(
+
+# Run the experiment - returns (experiment_id, result_dataframe)
+experiment_id, experiment_df = arize_client.run_experiment(
     space_id=os.getenv("ARIZE_SPACE_ID"),
     dataset_id=os.getenv("ARIZE_DATASET_ID"),
     task=run_task,
@@ -197,4 +195,4 @@ experiment = arize_client.run_experiment(
     experiment_name=f"Github Actions RAG Benchmark {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
 )
 
-determine_experiment_success(experiment.experiment_id)
+determine_experiment_success(experiment_df, experiment_id)
