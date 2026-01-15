@@ -5,10 +5,6 @@ on:
   pull_request:
     paths:
       - 'prompts/**'
-  # Run on pushes to prompts as a safety net
-  push:
-    paths:
-      - 'prompts/**'
   # Allow manual trigger for testing
   workflow_dispatch:
 
