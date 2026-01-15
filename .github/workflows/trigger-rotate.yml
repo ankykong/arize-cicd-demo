@@ -1,0 +1,24 @@
+name: Trigger Prompt Rotation
+
+on:
+  workflow_dispatch:  # Manual trigger button in GitHub Actions UI
+    inputs:
+      confirm:
+        description: 'Rotate to next prompt variant and run benchmark'
+        required: false
+        default: 'yes'
+        type: choice
+        options:
+          - 'yes'
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Rotate Prompt workflow
+        run: echo "Triggering Rotate Prompt workflow..."
+
+  rotate-prompt:
+    needs: trigger
+    uses: ./.github/workflows/rotate-prompt.yml
+    secrets: inherit
