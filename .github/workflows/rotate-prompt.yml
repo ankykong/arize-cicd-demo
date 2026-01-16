@@ -7,7 +7,22 @@ on:
     - cron: '0 0,3,6,9,12,15,18,21 * * *'
     - cron: '30 1,4,7,10,13,16,19,22 * * *'
   workflow_dispatch:  # Allow manual trigger
+    inputs:
+      use_bad_prompt:
+        description: 'Use bad prompt (for testing CI/CD blocking)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
   workflow_call:  # Allow other workflows to call this
+    inputs:
+      use_bad_prompt:
+        description: 'Use bad prompt (for testing CI/CD blocking)'
+        required: false
+        default: 'false'
+        type: string
 
 jobs:
   rotate:
@@ -34,7 +49,12 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Rotate prompt
-      run: python rotate_prompt.py
+      run: |
+        if [ "${{ inputs.use_bad_prompt }}" = "true" ]; then
+          python rotate_prompt.py --bad
+        else
+          python rotate_prompt.py
+        fi
 
     - name: Run benchmark (blocks push if fails)
       run: python benchmark.py

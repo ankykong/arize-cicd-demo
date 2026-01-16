@@ -1,24 +1,21 @@
-name: Trigger Prompt Rotation
+name: Test Bad Prompt (CI/CD Blocking Demo)
 
 on:
   workflow_dispatch:  # Manual trigger button in GitHub Actions UI
-    inputs:
-      confirm:
-        description: 'Rotate to next prompt variant and run benchmark'
-        required: false
-        default: 'yes'
-        type: choice
-        options:
-          - 'yes'
 
 jobs:
-  trigger:
+  test-bad-prompt:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Rotate Prompt workflow
-        run: echo "Triggering Rotate Prompt workflow..."
+      - name: Info
+        run: |
+          echo "🧪 Testing CI/CD blocking with bad prompt"
+          echo "This will use a prompt that encourages hallucination"
+          echo "The benchmark should FAIL and block the push"
 
-  rotate-prompt:
-    needs: trigger
+  rotate-with-bad-prompt:
+    needs: test-bad-prompt
     uses: ./.github/workflows/rotate-prompt.yml
+    with:
+      use_bad_prompt: 'true'
     secrets: inherit

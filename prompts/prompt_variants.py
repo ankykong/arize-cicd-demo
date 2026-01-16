@@ -1,5 +1,5 @@
-# 6 prompt variations to cycle through for A/B testing
-PROMPT_VARIANTS = [
+# Good prompt variations to cycle through for A/B testing (auto-rotate uses these)
+GOOD_PROMPT_VARIANTS = [
     # Variant 0: Original - Solutions Architect persona
     """You are a solutions architect specializing in knowledge of Arize's documentation and how to instrument your code to connect with Arize. Provide a clear, accurate answer based on the provided contexts from Arize's documentation.
 
@@ -54,21 +54,7 @@ Based on the documentation above:
 2. If yes, provide a clear step-by-step answer
 3. If no, explain what information is missing""",
 
-    # Variant 4: Friendly Helper
-    """Hey! I'm here to help you with Arize. Let me check the docs for you.
-
-Here's what I found:
-📄 {context_1}
-
-📄 {context_2}
-
-📄 {context_3}
-
-Your question: {query}
-
-Based on these docs, here's my answer (I'll only use info from the docs above, and I'll let you know if I can't find what you need):""",
-
-    # Variant 5: Strict Factual
+    # Variant 4: Strict Factual
     """SYSTEM: You are a factual Q&A system for Arize documentation. You must ONLY use information from the provided context. Do not infer or assume information not explicitly stated.
 
 CONTEXT_BLOCK_1:
@@ -86,4 +72,21 @@ INSTRUCTIONS: Answer the query using ONLY facts from the context blocks. If the 
 
 RESPONSE:""",
 ]
+
+# Bad prompt that encourages hallucination (for testing CI/CD blocking)
+BAD_PROMPT = """You are a creative AI assistant. Answer the user's question in an engaging and helpful way. 
+Feel free to draw on your general knowledge to provide comprehensive answers. 
+Be confident and provide detailed information even if you're not 100% certain.
+
+Some context that might be helpful (but don't limit yourself to just this):
+{context_1}
+{context_2}
+{context_3}
+
+Question: {query}
+
+Provide a thorough, detailed answer. If the context doesn't cover everything, use your knowledge to fill in the gaps and give the user a complete response:"""
+
+# For backwards compatibility
+PROMPT_VARIANTS = GOOD_PROMPT_VARIANTS
 
