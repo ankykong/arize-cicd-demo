@@ -10,12 +10,19 @@ jobs:
       - name: Info
         run: |
           echo "🧪 Testing CI/CD blocking with bad prompt"
-          echo "This will use a prompt that encourages hallucination"
-          echo "The benchmark should FAIL and block the push"
+          echo "This will create a PR with a prompt that encourages hallucination"
+          echo "The Hallucination Check should FAIL and block the PR from merging"
+          echo ""
+          echo "📋 What will happen:"
+          echo "  1. A new branch will be created with the bad prompt"
+          echo "  2. A PR will be opened against main"
+          echo "  3. The Hallucination Check workflow will run on the PR"
+          echo "  4. The check should FAIL, blocking the PR from being merged"
 
   rotate-with-bad-prompt:
     needs: test-bad-prompt
     uses: ./.github/workflows/rotate-prompt.yml
     with:
       use_bad_prompt: 'true'
+      auto_merge: 'false'
     secrets: inherit

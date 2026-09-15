@@ -16,12 +16,25 @@ on:
         options:
           - 'false'
           - 'true'
+      auto_merge:
+        description: 'Auto-merge PR if hallucination check passes'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
   workflow_call:  # Allow other workflows to call this
     inputs:
       use_bad_prompt:
         description: 'Use bad prompt (for testing CI/CD blocking)'
         required: false
         default: 'false'
+        type: string
+      auto_merge:
+        description: 'Auto-merge PR if hallucination check passes'
+        required: false
+        default: 'true'
         type: string
 
 jobs:
@@ -33,37 +46,142 @@ jobs:
       ARIZE_SPACE_ID: ${{ secrets.ARIZE_SPACE_ID }}
       ARIZE_API_KEY: ${{ secrets.ARIZE_API_KEY }}
       ARIZE_DATASET_ID: ${{ secrets.ARIZE_DATASET_ID }}
+    outputs:
+      pr_number: ${{ steps.create-pr.outputs.pr_number }}
+      pr_url: ${{ steps.create-pr.outputs.pr_url }}
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v7
+      uses: actions/checkout@v4
       with:
         token: ${{ secrets.PAT_TOKEN }}
+        fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Rotate prompt
+    - name: Generate branch name
+      id: branch
       run: |
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        if [ "${{ inputs.use_bad_prompt }}" = "true" ]; then
+          BRANCH_NAME="prompt-rotate/bad-prompt-${TIMESTAMP}"
+        else
+          BRANCH_NAME="prompt-rotate/variant-${TIMESTAMP}"
+        fi
+        echo "name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+
+    - name: Create branch and rotate prompt
+      run: |
+        git checkout -b ${{ steps.branch.outputs.name }}
+        
         if [ "${{ inputs.use_bad_prompt }}" = "true" ]; then
           python rotate_prompt.py --bad
         else
           python rotate_prompt.py
         fi
 
-    - name: Run benchmark (blocks push if fails)
-      run: python benchmark.py
-
-    - name: Commit and push changes (only runs if benchmark passed)
+    - name: Commit changes
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add prompts/rag_prompt.py .prompt_state.json
-        git diff --staged --quiet || git commit -m "🔄 Auto-rotate prompt variant"
-        git push
+        
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+          echo "HAS_CHANGES=false" >> $GITHUB_ENV
+        else
+          if [ "${{ inputs.use_bad_prompt }}" = "true" ]; then
+            git commit -m "🧪 Test: Use bad prompt (CI/CD blocking demo)"
+          else
+            git commit -m "🔄 Auto-rotate prompt variant"
+          fi
+          echo "HAS_CHANGES=true" >> $GITHUB_ENV
+        fi
 
+    - name: Push branch
+      if: env.HAS_CHANGES == 'true'
+      run: git push origin ${{ steps.branch.outputs.name }}
+
+    - name: Create Pull Request
+      if: env.HAS_CHANGES == 'true'
+      id: create-pr
+      env:
+        GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+      run: |
+        if [ "${{ inputs.use_bad_prompt }}" = "true" ]; then
+          PR_TITLE="🧪 Test: Bad prompt (should fail hallucination check)"
+          PR_BODY="## Automated Prompt Rotation
+
+        This PR was automatically created by the prompt rotation workflow.
+
+        ⚠️ **This PR intentionally uses a bad prompt to test CI/CD blocking.**
+
+        ### Workflow
+        1. ⏳ The **Hallucination Check** will run automatically on this PR
+        2. 👀 Review the hallucination check results before merging
+        3. ❌ If the check **fails**, this PR will be **blocked from merging**
+
+        ---
+        *Created by GitHub Actions workflow \`rotate-prompt.yml\`*"
+        else
+          PR_TITLE="🔄 Rotate RAG prompt variant"
+          PR_BODY="## Automated Prompt Rotation
+
+        This PR was automatically created by the prompt rotation workflow.
+
+        ✅ This PR rotates to the next prompt variant in the A/B testing cycle.
+
+        ### Workflow
+        1. ⏳ The **Hallucination Check** will run automatically on this PR
+        2. 🔄 If the check **passes**, this PR will be auto-merged
+        3. ❌ If the check **fails**, this PR will be **blocked from merging**
+
+        ---
+        *Created by GitHub Actions workflow \`rotate-prompt.yml\`*"
+        fi
+        
+        PR_URL=$(gh pr create \
+          --title "$PR_TITLE" \
+          --body "$PR_BODY" \
+          --base main \
+          --head ${{ steps.branch.outputs.name }} \
+          --label "automated" \
+          --label "prompt-rotation" 2>&1) || true
+        
+        # Extract PR number from URL
+        if [[ "$PR_URL" =~ /pull/([0-9]+) ]]; then
+          PR_NUMBER="${BASH_REMATCH[1]}"
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+          echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
+          echo "PR created: $PR_URL"
+        else
+          echo "Failed to create PR or extract PR number"
+          echo "Output: $PR_URL"
+          exit 1
+        fi
+
+    - name: Enable auto-merge
+      if: env.HAS_CHANGES == 'true' && inputs.auto_merge != 'false' && inputs.use_bad_prompt != 'true'
+      env:
+        GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+      run: |
+        echo "Enabling auto-merge for PR #${{ steps.create-pr.outputs.pr_number }}"
+        gh pr merge ${{ steps.create-pr.outputs.pr_number }} --auto --squash || echo "Auto-merge not available (may need branch protection rules)"
+
+    - name: Output PR info
+      if: env.HAS_CHANGES == 'true'
+      run: |
+        echo "### 🎉 Pull Request Created" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **PR Number:** #${{ steps.create-pr.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **PR URL:** ${{ steps.create-pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch:** \`${{ steps.branch.outputs.name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The Hallucination Check workflow will run automatically. The PR will be blocked from merging if the check fails." >> $GITHUB_STEP_SUMMARY
