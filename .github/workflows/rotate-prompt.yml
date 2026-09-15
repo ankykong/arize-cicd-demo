@@ -147,6 +147,10 @@ jobs:
         *Created by GitHub Actions workflow \`rotate-prompt.yml\`*"
         fi
         
+        # Create labels if they don't exist (ignore errors if they already exist)
+        gh label create "automated" --description "Automated PR" --color "0E8A16" 2>/dev/null || true
+        gh label create "prompt-rotation" --description "Prompt rotation PR" --color "1D76DB" 2>/dev/null || true
+        
         PR_URL=$(gh pr create \
           --title "$PR_TITLE" \
           --body "$PR_BODY" \

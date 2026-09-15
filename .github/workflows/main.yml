@@ -1,12 +1,14 @@
 name: Hallucination Check
 
 on:
-  # Run on PRs that change prompts - blocks merge if benchmark fails
+  # Run on ALL PRs so the required check always reports status
   pull_request:
-    paths:
-      - 'prompts/**'
   # Allow manual trigger for testing
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   benchmark:
@@ -26,27 +28,60 @@ jobs:
       with:
         # For PRs, checkout the PR head commit
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        fetch-depth: 0
+
+    - name: Check if prompts changed
+      id: changes
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "prompts_changed=true" >> $GITHUB_OUTPUT
+          echo "Manual trigger - running benchmark"
+        else
+          # Check if any prompts/** files changed in this PR
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- prompts/ || true)
+          if [ -n "$CHANGED" ]; then
+            echo "prompts_changed=true" >> $GITHUB_OUTPUT
+            echo "Prompts changed:"
+            echo "$CHANGED"
+          else
+            echo "prompts_changed=false" >> $GITHUB_OUTPUT
+            echo "No prompts changed - skipping benchmark"
+          fi
+        fi
+
+    - name: Skip message
+      if: steps.changes.outputs.prompts_changed == 'false'
+      run: |
+        echo "✅ No prompt changes detected - skipping hallucination check"
+        echo "### ✅ Hallucination Check Skipped" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "No changes to \`prompts/**\` detected. Benchmark not required." >> $GITHUB_STEP_SUMMARY
 
     - name: Set up Python
+      if: steps.changes.outputs.prompts_changed == 'true'
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
     - name: Install dependencies
+      if: steps.changes.outputs.prompts_changed == 'true'
       run: pip install -r requirements.txt
 
     - name: Install Arize ax CLI
+      if: steps.changes.outputs.prompts_changed == 'true'
       run: pipx install arize-ax-cli
 
     - name: Configure ax CLI profile
+      if: steps.changes.outputs.prompts_changed == 'true'
       run: ax profiles create ci --auth-method api-key --api-key "$ARIZE_API_KEY" --output-format json
 
     - name: Run benchmark
+      if: steps.changes.outputs.prompts_changed == 'true'
       id: benchmark
       run: python benchmark.py
 
     - name: Post check result to PR
-      if: always() && github.event_name == 'pull_request'
+      if: always() && github.event_name == 'pull_request' && steps.changes.outputs.prompts_changed == 'true'
       uses: actions/github-script@v7
       with:
         script: |
