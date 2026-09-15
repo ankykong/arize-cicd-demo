@@ -6,6 +6,10 @@ on:
   # Allow manual trigger for testing
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
