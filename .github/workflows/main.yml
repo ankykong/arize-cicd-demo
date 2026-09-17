@@ -91,9 +91,9 @@ jobs:
           const body = `## ${emoji} Hallucination Check ${status}
 
           The RAG prompt benchmark has ${status.toLowerCase()}.
-          
-          ${passed ? '**This PR is safe to merge.**' : '**This PR is blocked from merging until the hallucination check passes.**'}
-          
+
+          ${passed ? '**This PR is safe to merge.**' : '**This PR is blocked from merging until the hallucination check passes.** See the **Summary** tab of the workflow run below for the per-example evaluator explanations.'}
+
           [View workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
           
           github.rest.issues.createComment({
