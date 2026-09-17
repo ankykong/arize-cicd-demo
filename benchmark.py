@@ -178,6 +178,7 @@ def evaluate_experiment_results(experiment_df: pd.DataFrame, threshold: float = 
     metrics = {}
     all_passed = True
     details_parts = []
+    failing_explanations = []
 
     for col in score_columns:
         scores = pd.to_numeric(experiment_df[col], errors="coerce").dropna()
@@ -191,6 +192,21 @@ def evaluate_experiment_results(experiment_df: pd.DataFrame, threshold: float = 
         if not passed:
             all_passed = False
 
+        # Surface the judge's explanation for every row this evaluator scored as
+        # failing, so a failure is actionable instead of just a bare percentage.
+        explanation_col = col[: -len(".score")] + ".explanation"
+        if explanation_col in experiment_df.columns:
+            failing_rows = experiment_df.loc[scores.index][scores == 0]
+            for _, row in failing_rows.iterrows():
+                explanation = row.get(explanation_col)
+                if explanation:
+                    failing_explanations.append({
+                        "id": row.get("id"),
+                        "output": row.get("output"),
+                        "metric": col,
+                        "explanation": explanation,
+                    })
+
     if not metrics:
         return {
             "success": False,
@@ -199,11 +215,20 @@ def evaluate_experiment_results(experiment_df: pd.DataFrame, threshold: float = 
         }
 
     details = f"AX Evaluation Results (threshold: {threshold:.0%}):\n" + "\n".join(details_parts)
+    if failing_explanations:
+        details += "\n\nExplanations for failing examples:\n"
+        for item in failing_explanations:
+            details += (
+                f"\n  [{item['metric']}] run {item['id']}\n"
+                f"    output: {item['output']}\n"
+                f"    explanation: {item['explanation']}\n"
+            )
 
     return {
         "success": all_passed,
         "metrics": metrics,
-        "details": details
+        "details": details,
+        "failing_explanations": failing_explanations,
     }
 
 
@@ -224,6 +249,22 @@ def determine_experiment_success(experiment_df: pd.DataFrame, experiment_id: str
 
     print(result["details"])
     print(f"{'='*60}")
+
+    step_summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+    if step_summary_path:
+        with open(step_summary_path, "a") as f:
+            f.write("### Hallucination Check Results\n\n")
+            f.write(f"Experiment ID: `{experiment_id}`\n\n")
+            for metric, mean_score in result["metrics"].items():
+                status = "✅ PASS" if mean_score >= threshold else "❌ FAIL"
+                f.write(f"- `{metric}`: {mean_score:.2%} {status}\n")
+            for item in result.get("failing_explanations", []):
+                f.write(
+                    f"\n<details><summary>{item['metric']} — run {item['id']}</summary>\n\n"
+                    f"**Output:** {item['output']}\n\n"
+                    f"**Explanation:** {item['explanation']}\n\n"
+                    "</details>\n"
+                )
 
     if result["success"]:
         print("STATUS: SUCCESS - All metrics passed threshold")
